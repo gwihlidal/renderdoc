@@ -3902,6 +3902,19 @@ ReplayStatus D3D11_CreateReplayDevice(RDCFile *rdc, const ReplayOptions &opts, I
         initParams.SDKVersion, D3D11_SDK_VERSION);
   }
 
+  INVAPID3DDevice *nvapiDev = NULL;
+
+  if(initParams.VendorExtensions == GPUVendor::nVidia)
+  {
+    nvapiDev = InitialiseNVAPIReplay();
+
+    if(!nvapiDev)
+    {
+      RDCERR("Capture requires nvapi to replay, but it's not available or can't be initialised");
+      return ReplayStatus::APIInitFailed;
+    }
+  }
+
   IDXGIAdapter *adapter = NULL;
   ID3D11Device *device = NULL;
   HRESULT hr = E_FAIL;
@@ -4079,7 +4092,10 @@ ReplayStatus D3D11_CreateReplayDevice(RDCFile *rdc, const ReplayOptions &opts, I
   if(SUCCEEDED(hr) && device)
   {
     WrappedID3D11Device *wrappedDev = new WrappedID3D11Device(device, initParams);
-    wrappedDev->SetInitParams(initParams, ver, opts);
+    wrappedDev->SetInitParams(initParams, ver, opts, nvapiDev);
+
+    if(nvapiDev)
+      nvapiDev->SetReal(wrappedDev->GetReal());
 
     if(!isProxy)
       RDCLOG("Created device.");

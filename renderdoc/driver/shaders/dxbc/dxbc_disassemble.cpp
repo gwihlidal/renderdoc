@@ -308,6 +308,80 @@ void Program::FetchTypeVersion()
   m_Minor = VersionToken::MinorVersion.Get(cur[0]);
 }
 
+bool Program::UsesExtensionUAV(uint32_t slot, uint32_t space, const byte *bytes, size_t length)
+{
+  uint32_t *begin = (uint32_t *)bytes;
+  uint32_t *cur = begin;
+  uint32_t *end = begin + (length / sizeof(uint32_t));
+
+  const bool sm51 = (VersionToken::MajorVersion.Get(cur[0]) == 0x5 &&
+                     VersionToken::MinorVersion.Get(cur[0]) == 0x1);
+
+  if(sm51 && space == ~0U)
+    return false;
+
+  // skip version and length
+  cur += 2;
+
+  while(cur < end)
+  {
+    uint32_t OpcodeToken0 = cur[0];
+
+    OpcodeType op = Opcode::Type.Get(OpcodeToken0);
+
+    if(op == OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED)
+    {
+      uint32_t *tokenStream = cur;
+
+      // skip opcode and length
+      tokenStream++;
+
+      uint32_t indexDim = Oper::IndexDimension.Get(tokenStream[0]);
+      OperandIndexType idxType = Oper::Index0.Get(tokenStream[0]);
+
+      // expect only one immediate index for the operand
+      if(indexDim == 1 && idxType == INDEX_IMMEDIATE32)
+      {
+        bool extended = Oper::Extended.Get(tokenStream[0]);
+
+        tokenStream++;
+
+        while(extended)
+        {
+          extended = ExtendedOperand::Extended.Get(tokenStream[0]) == 1;
+
+          tokenStream++;
+        }
+
+        uint32_t opreg = tokenStream[0];
+        tokenStream++;
+
+        // stride
+        tokenStream++;
+
+        uint32_t opspace = ~0U;
+        if(sm51)
+          opspace = tokenStream[0];
+
+        if(space == opspace && slot == opreg)
+          return true;
+      }
+    }
+
+    if(op == OPCODE_CUSTOMDATA)
+    {
+      // length in opcode token is 0, full length is in second dword
+      cur += cur[1];
+    }
+    else
+    {
+      cur += Opcode::Length.Get(OpcodeToken0);
+    }
+  }
+
+  return false;
+}
+
 void Program::FetchComputeProperties(DXBC::Reflection *reflection)
 {
   if(m_HexDump.empty())

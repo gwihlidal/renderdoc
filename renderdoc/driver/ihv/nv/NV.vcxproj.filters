@@ -13,6 +13,9 @@
     <ClInclude Include="official\nvapi\nvapi_interface.h">
       <Filter>official\nvapi</Filter>
     </ClInclude>
+    <ClInclude Include="nvapi_wrapper.h">
+      <Filter>nvapi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="official">
@@ -41,5 +44,6 @@
     <ClCompile Include="nvapi_hooks.cpp">
       <Filter>nvapi</Filter>
     </ClCompile>
+    <ClCompile Include="nvapi_wrapper.cpp" />
   </ItemGroup>
 </Project>

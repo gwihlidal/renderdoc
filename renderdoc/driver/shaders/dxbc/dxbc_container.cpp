@@ -677,6 +677,38 @@ void DXBCContainer::GetHash(uint32_t hash[4], const void *ByteCode, size_t Bytec
   }
 }
 
+bool DXBCContainer::UsesExtensionUAV(uint32_t slot, uint32_t space, const void *ByteCode,
+                                     size_t BytecodeLength)
+{
+  if(slot == ~0U && space == ~0U)
+    return false;
+
+  const FileHeader *header = (const FileHeader *)ByteCode;
+
+  const byte *data = (const byte *)ByteCode;    // just for convenience
+
+  if(header->fourcc != FOURCC_DXBC)
+    return false;
+
+  if(header->fileLength != (uint32_t)BytecodeLength)
+    return false;
+
+  const uint32_t *chunkOffsets = (const uint32_t *)(header + 1);    // right after the header
+
+  for(uint32_t chunkIdx = 0; chunkIdx < header->numChunks; chunkIdx++)
+  {
+    const uint32_t *fourcc = (const uint32_t *)(data + chunkOffsets[chunkIdx]);
+    const uint32_t *chunkSize = (const uint32_t *)(fourcc + 1);
+
+    const byte *chunkContents = (const byte *)(chunkSize + 1);
+
+    if(*fourcc == FOURCC_SHEX || *fourcc == FOURCC_SHDR)
+      return DXBCBytecode::Program::UsesExtensionUAV(slot, space, chunkContents, *chunkSize);
+  }
+
+  return false;
+}
+
 bool DXBCContainer::CheckForDebugInfo(const void *ByteCode, size_t ByteCodeLength)
 {
   FileHeader *header = (FileHeader *)ByteCode;
